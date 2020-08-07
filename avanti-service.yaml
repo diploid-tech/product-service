@@ -1,0 +1,32 @@
+main:
+  namespace: services
+  name: product-service
+  description: |
+    A example service for storing products. It has only private end-points to upsert and/or get products from other services. Also creates sample data at the first time the service starts.
+
+    This service is an example of being a generic service for a specific domain entity (product) which are created inside the platform
+  deploymentType: Service
+  buildType: netcore
+  integration: none
+  httpPort: 5000
+  clusterPort: 2552
+  team: platform
+  authorization:
+    requiredClaims:
+      azp: applications
+      aud: account
+    mappings:
+      x-avanti-customerId: context.customerId
+      x-avanti-email: email
+environments:
+  staging:
+    replicaCount: 1
+    cpuLimit: 75m
+    memoryLimit: 128Mi
+    vars:
+      AkkaSettings__AkkaClusterDiscoveryResolver: Kubernetes
+      AkkaSettings__MinNumberOfNodesInCluster: 1
+      AuthenticationSettings__BasicAuthenticationPassword: hksdflkjsaflkdkdljflaksdkl
+      Serilog__MinimumLevel__Default: Information
+      RelationalDataStoreSettings__DatabaseName: product
+      ProcessorSettings__DelayProcessingOnStartInSeconds: 10
