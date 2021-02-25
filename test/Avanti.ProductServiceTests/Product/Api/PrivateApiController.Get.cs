@@ -29,7 +29,7 @@ namespace Avanti.ProductServiceTests.Product.Api
                 progProductActor.SetResponseForRequest<ProductActor.GetProductById>(request =>
                     new ProductActor.ProductFound { Id = 12, Document = product });
 
-                var result = await Subject.GetProduct(
+                IActionResult result = await Subject.GetProduct(
                     new PrivateApiController.GetProductRequest { Id = 12 });
 
                 result.Should().BeOfType<OkObjectResult>()
@@ -57,7 +57,7 @@ namespace Avanti.ProductServiceTests.Product.Api
                 progProductActor.SetResponseForRequest<ProductActor.GetProductById>(request =>
                     new ProductActor.ProductNotFound());
 
-                var result = await Subject.GetProduct(
+                IActionResult result = await Subject.GetProduct(
                     new PrivateApiController.GetProductRequest { Id = 12 });
 
                 result.Should().BeOfType<NotFoundResult>();
@@ -69,7 +69,7 @@ namespace Avanti.ProductServiceTests.Product.Api
                 progProductActor.SetResponseForRequest<ProductActor.GetProductById>(request =>
                     new ProductActor.ProductRetrievalFailed());
 
-                var result = await Subject.GetProduct(
+                IActionResult result = await Subject.GetProduct(
                     new PrivateApiController.GetProductRequest { Id = 12 });
 
                 result.Should().BeOfType<StatusCodeResult>()

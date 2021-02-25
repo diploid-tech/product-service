@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Akka.Actor;
@@ -20,10 +19,10 @@ namespace Avanti.ProductService.Product.Api
         [HttpPost]
         public async Task<IActionResult> PostProduct([FromBody] PostProductRequest request)
         {
-            logger.LogInformation($"Incoming request to upsert product with id '{request.Id}'");
+            this.logger.LogInformation($"Incoming request to upsert product with id '{request.Id}'");
 
-            return await productActorRef.Ask<ProductActor.IResponse>(
-                mapper.Map<ProductActor.UpsertProduct>(request)) switch
+            return await this.productActorRef.Ask<ProductActor.IResponse>(
+                this.mapper.Map<ProductActor.UpsertProduct>(request)) switch
             {
                 ProductActor.ProductStored stored => new OkObjectResult(new PostProductResponse
                 {
@@ -41,9 +40,9 @@ namespace Avanti.ProductService.Product.Api
         [HttpPost("list")]
         public async Task<IActionResult> PostGetMultipleProducts([FromBody] PostMultipleProductsRequest request)
         {
-            logger.LogDebug($"Incoming request get products '{string.Join(", ", request.ProductIds)}'");
+            this.logger.LogDebug($"Incoming request get products '{string.Join(", ", request.ProductIds)}'");
 
-            return await productActorRef.Ask<ProductActor.IResponse>(
+            return await this.productActorRef.Ask<ProductActor.IResponse>(
                 new ProductActor.GetProductsById { ProductIds = request.ProductIds }) switch
             {
                 ProductActor.ProductsFound found => new OkObjectResult(

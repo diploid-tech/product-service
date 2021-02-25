@@ -11,7 +11,7 @@ namespace Avanti.ProductServiceTests.Product.Api
     {
         public class When_PostProduct_Request_Is_Received : PrivateApiControllerSpec
         {
-            private PrivateApiController.PostProductRequest request = new PrivateApiController.PostProductRequest
+            private readonly PrivateApiController.PostProductRequest request = new()
             {
                 Id = 15,
                 Description = "Shirt",
@@ -30,7 +30,7 @@ namespace Avanti.ProductServiceTests.Product.Api
                 progProductActor.SetResponseForRequest<ProductActor.UpsertProduct>(request =>
                     new ProductActor.ProductStored { Id = 15 });
 
-                var result = await Subject.PostProduct(request);
+                IActionResult result = await Subject.PostProduct(request);
 
                 result.Should().BeOfType<OkObjectResult>()
                     .Which.Value.Should().BeEquivalentTo(new PrivateApiController.PostProductResponse { Id = 15 });
@@ -57,7 +57,7 @@ namespace Avanti.ProductServiceTests.Product.Api
                 progProductActor.SetResponseForRequest<ProductActor.UpsertProduct>(request =>
                     new ProductActor.ProductFailedToStore());
 
-                var result = await Subject.PostProduct(request);
+                IActionResult result = await Subject.PostProduct(request);
 
                 result.Should().BeOfType<StatusCodeResult>()
                     .Which.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);

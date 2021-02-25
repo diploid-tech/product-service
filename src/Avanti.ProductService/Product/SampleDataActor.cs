@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Akka.Actor;
@@ -17,7 +18,7 @@ namespace Avanti.ProductService.Product
         private readonly IActorRef productActor;
         private readonly IActorRef datastoreActor;
         private readonly IClock clock;
-        private readonly Random random = new Random();
+        private readonly Random random = new();
 
         public SampleDataActor(
             IRelationalDataStoreActorProvider datastoreActorProvider,
@@ -31,9 +32,10 @@ namespace Avanti.ProductService.Product
             ReceiveAsync<DataStoreCreatorActor.DataStoreIsInitialized>(_ => Handle());
         }
 
+        [SuppressMessage("Microsoft.Design", "CA5394")]
         private async Task Handle()
         {
-            var result = await this.datastoreActor.Ask(new RelationalDataStoreActor.ExecuteQuery(DataStoreStatements.GetSampleDataStatus));
+            object? result = await this.datastoreActor.Ask(new RelationalDataStoreActor.ExecuteQuery(DataStoreStatements.GetSampleDataStatus));
 
             switch (result)
             {
@@ -41,8 +43,8 @@ namespace Avanti.ProductService.Product
                     this.log.Info("Sample data already loaded");
                     break;
 
-                case RelationalDataStoreActor.QueryResult _:
-                    for (var idx = 0; idx < NumberOfSampleProducts; idx++)
+                case RelationalDataStoreActor.QueryResult:
+                    for (int idx = 0; idx < NumberOfSampleProducts; idx++)
                     {
                         this.productActor.Tell(ConstructUpsertMessage(
                             $"shirt model {Guid.NewGuid()}",
@@ -68,7 +70,7 @@ namespace Avanti.ProductService.Product
         }
 
         private static ProductActor.UpsertProduct ConstructUpsertMessage(string description, int price, int warehouseId, IDictionary<string, string> properties) =>
-            new ProductActor.UpsertProduct
+            new()
             {
                 Description = description,
                 Price = price,
@@ -76,9 +78,7 @@ namespace Avanti.ProductService.Product
                 Properties = properties.Select(p => new ProductActor.UpsertProduct.Property { Name = p.Key, Value = p.Value })
             };
 
-        protected override void PreStart()
-        {
-            Context.System.EventStream.Subscribe(Self, typeof(DataStoreCreatorActor.DataStoreIsInitialized));
-        }
+        protected override void PreStart() =>
+            Context.System.EventStream.Subscribe(this.Self, typeof(DataStoreCreatorActor.DataStoreIsInitialized));
     }
 }

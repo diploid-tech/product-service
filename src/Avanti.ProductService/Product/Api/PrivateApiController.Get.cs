@@ -19,13 +19,13 @@ namespace Avanti.ProductService.Product.Api
         [HttpGet("{Id}")]
         public async Task<IActionResult> GetProduct([FromRoute] GetProductRequest request)
         {
-            logger.LogDebug($"Incoming request to get product with id '{request.Id}'");
+            this.logger.LogDebug($"Incoming request to get product with id '{request.Id}'");
 
-            return await productActorRef.Ask<ProductActor.IResponse>(
+            return await this.productActorRef.Ask<ProductActor.IResponse>(
                 new ProductActor.GetProductById { Id = request.Id!.Value }) switch
             {
-                ProductActor.ProductFound found => new OkObjectResult(mapper.Map<GetProductResponse>(found)),
-                ProductActor.ProductNotFound _ => new NotFoundResult(),
+                ProductActor.ProductFound found => new OkObjectResult(this.mapper.Map<GetProductResponse>(found)),
+                ProductActor.ProductNotFound => new NotFoundResult(),
                 _ => new StatusCodeResult(StatusCodes.Status500InternalServerError)
             };
         }

@@ -32,26 +32,26 @@ namespace Avanti.ProductService.Product
             this.mapper = mapper;
             this.clock = clock;
 
-            ReceiveAsync<GetProductById>(m => HandleGetProductById(m).PipeTo(Sender));
-            ReceiveAsync<GetProductsById>(m => HandleGetProductsById(m).PipeTo(Sender));
-            ReceiveAsync<UpsertProduct>(m => HandleUpsertProduct(m).PipeTo(Sender));
+            ReceiveAsync<GetProductById>(m => HandleGetProductById(m).PipeTo(this.Sender));
+            ReceiveAsync<GetProductsById>(m => HandleGetProductsById(m).PipeTo(this.Sender));
+            ReceiveAsync<UpsertProduct>(m => HandleUpsertProduct(m).PipeTo(this.Sender));
         }
 
         private async Task<IResponse> HandleGetProductById(GetProductById m)
         {
             this.log.Info($"Incoming request for getting product by id {m.Id}");
 
-            var result = await this.relationalDataStoreActorProvider.ExecuteScalarJsonAs<ProductDocument>(
+            Result<ProductDocument>? result = await this.relationalDataStoreActorProvider.ExecuteScalarJsonAs<ProductDocument>(
                 DataStoreStatements.GetProductById,
                 new
                 {
-                    Id = m.Id
+                    m.Id
                 });
 
             return result switch
             {
                 IsSome<ProductDocument> scalar => new ProductFound { Id = m.Id, Document = scalar.Value },
-                IsNone _ => new ProductNotFound(),
+                IsNone => new ProductNotFound(),
                 _ => new ProductRetrievalFailed()
             };
         }
@@ -60,7 +60,7 @@ namespace Avanti.ProductService.Product
         {
             this.log.Info($"Incoming request for getting products '{string.Join(", ", m.ProductIds)}'");
 
-            var result = await this.relationalDataStoreActorProvider.ExecuteQuery(
+            Result<IEnumerable<dynamic>>? result = await this.relationalDataStoreActorProvider.ExecuteQuery(
                 DataStoreStatements.GetProductsById,
                 new
                 {
@@ -83,12 +83,12 @@ namespace Avanti.ProductService.Product
         {
             this.log.Info($"Incoming request for upserting product with id {m.Id}");
 
-            var document = mapper.Map<ProductDocument>(m);
-            var result = await this.relationalDataStoreActorProvider.ExecuteScalar<int>(
+            ProductDocument? document = this.mapper.Map<ProductDocument>(m);
+            Result<int>? result = await this.relationalDataStoreActorProvider.ExecuteScalar<int>(
                 m.Id.HasValue ? DataStoreStatements.UpdateProduct : DataStoreStatements.InsertProduct,
                 new
                 {
-                    Id = m.Id,
+                    m.Id,
                     ProductJson = JsonSerializer.Serialize(document),
                     Now = this.clock.Now()
                 });
@@ -96,8 +96,8 @@ namespace Avanti.ProductService.Product
             switch (result)
             {
                 case IsSome<int> id:
-                    var e = mapper.Map<Events.ProductUpdated>((id.Value, document));
-                    if (await platformEventActorProvider.SendEvent(e) is IsSuccess)
+                    Events.ProductUpdated? e = this.mapper.Map<Events.ProductUpdated>((id.Value, document));
+                    if (await this.platformEventActorProvider.SendEvent(e) is IsSuccess)
                     {
                         return new ProductStored { Id = id.Value };
                     }

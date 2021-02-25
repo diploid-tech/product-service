@@ -16,7 +16,7 @@ namespace Avanti.ProductServiceTests.Product
     {
         public class When_Upsert_Product_Is_Received : ProductActorSpec
         {
-            private ProductActor.UpsertProduct input = new ProductActor.UpsertProduct
+            private readonly ProductActor.UpsertProduct input = new()
             {
                 Id = 12,
                 Description = "shirt",
@@ -32,10 +32,10 @@ namespace Avanti.ProductServiceTests.Product
 
             public When_Upsert_Product_Is_Received()
             {
-                this.progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
+                progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
                     new RelationalDataStoreActor.ScalarResult(12));
 
-                this.progPlatformEventActor.SetResponseForRequest<PlatformEventActor.SendEvent>(request =>
+                progPlatformEventActor.SetResponseForRequest<PlatformEventActor.SendEvent>(request =>
                     new PlatformEventActor.EventSendSuccess());
             }
 
@@ -63,7 +63,7 @@ namespace Avanti.ProductServiceTests.Product
                         Id = 12
                     });
 
-                this.progDatastoreActor.GetRequest<RelationalDataStoreActor.ExecuteScalar>()
+                progDatastoreActor.GetRequest<RelationalDataStoreActor.ExecuteScalar>()
                     .Should().BeEquivalentTo(new RelationalDataStoreActor.ExecuteScalar(
                         DataStoreStatements.UpdateProduct,
                         new
@@ -73,7 +73,7 @@ namespace Avanti.ProductServiceTests.Product
                             Now = DateTimeOffset.Parse("2018-04-01T07:00:00Z", CultureInfo.InvariantCulture)
                         }));
 
-                this.progPlatformEventActor.GetRequest<PlatformEventActor.SendEvent>().Should().BeEquivalentTo(
+                progPlatformEventActor.GetRequest<PlatformEventActor.SendEvent>().Should().BeEquivalentTo(
                     new PlatformEventActor.SendEvent(
                         new ProductUpdated
                         {
@@ -84,7 +84,7 @@ namespace Avanti.ProductServiceTests.Product
             [Fact]
             public void Should_Return_Stored_When_New_Product_Is_Inserted_Successfully_And_Send_Event()
             {
-                this.progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
+                progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
                     new RelationalDataStoreActor.ScalarResult(99));
 
                 var document = new ProductDocument
@@ -117,7 +117,7 @@ namespace Avanti.ProductServiceTests.Product
                         Id = 99
                     });
 
-                this.progDatastoreActor.GetRequest<RelationalDataStoreActor.ExecuteScalar>()
+                progDatastoreActor.GetRequest<RelationalDataStoreActor.ExecuteScalar>()
                     .Should().BeEquivalentTo(new RelationalDataStoreActor.ExecuteScalar(
                         DataStoreStatements.InsertProduct,
                         new
@@ -126,7 +126,7 @@ namespace Avanti.ProductServiceTests.Product
                             Now = DateTimeOffset.Parse("2018-04-01T07:00:00Z", CultureInfo.InvariantCulture)
                         }));
 
-                this.progPlatformEventActor.GetRequest<PlatformEventActor.SendEvent>().Should().BeEquivalentTo(
+                progPlatformEventActor.GetRequest<PlatformEventActor.SendEvent>().Should().BeEquivalentTo(
                     new PlatformEventActor.SendEvent(
                         new ProductUpdated
                         {
@@ -137,7 +137,7 @@ namespace Avanti.ProductServiceTests.Product
             [Fact]
             public void Should_Return_Failure_When_Failed_To_Store()
             {
-                this.progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
+                progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
                     new RelationalDataStoreActor.ExecuteFailed());
 
                 Subject.Tell(input);
@@ -148,7 +148,7 @@ namespace Avanti.ProductServiceTests.Product
             [Fact]
             public void Should_Return_Failure_When_Failed_To_Send_Event()
             {
-                this.progPlatformEventActor.SetResponseForRequest<PlatformEventActor.SendEvent>(request =>
+                progPlatformEventActor.SetResponseForRequest<PlatformEventActor.SendEvent>(request =>
                     new PlatformEventActor.EventSendFailed());
 
                 Subject.Tell(input);

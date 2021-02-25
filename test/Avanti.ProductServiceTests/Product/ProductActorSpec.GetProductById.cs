@@ -12,7 +12,7 @@ namespace Avanti.ProductServiceTests.Product
     {
         public class When_Get_Product_By_Id_Is_Received : ProductActorSpec
         {
-            private ProductActor.GetProductById input = new ProductActor.GetProductById
+            private readonly ProductActor.GetProductById input = new()
             {
                 Id = 12
             };
@@ -33,7 +33,7 @@ namespace Avanti.ProductServiceTests.Product
                     }
                 };
 
-                this.progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
+                progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
                         new RelationalDataStoreActor.ScalarResult(JsonSerializer.Serialize(document)));
 
                 Subject.Tell(input);
@@ -45,7 +45,7 @@ namespace Avanti.ProductServiceTests.Product
                         Document = document
                     });
 
-                this.progDatastoreActor.GetRequest<RelationalDataStoreActor.ExecuteScalar>()
+                progDatastoreActor.GetRequest<RelationalDataStoreActor.ExecuteScalar>()
                     .Should().BeEquivalentTo(new RelationalDataStoreActor.ExecuteScalar(
                         DataStoreStatements.GetProductById,
                         new
@@ -57,7 +57,7 @@ namespace Avanti.ProductServiceTests.Product
             [Fact]
             public void Should_Return_Not_Found_When_Not_Found()
             {
-                this.progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
+                progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
                     new RelationalDataStoreActor.ScalarResult(null));
 
                 Subject.Tell(input);
@@ -68,7 +68,7 @@ namespace Avanti.ProductServiceTests.Product
             [Fact]
             public void Should_Return_Failure_When_Could_Not_Retrieve_Data()
             {
-                this.progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
+                progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
                     new RelationalDataStoreActor.ExecuteFailed());
 
                 Subject.Tell(input);
