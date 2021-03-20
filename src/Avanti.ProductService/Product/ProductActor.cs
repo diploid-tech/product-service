@@ -8,6 +8,7 @@ using Akka.Event;
 using AutoMapper;
 using Avanti.Core.EventStream;
 using Avanti.Core.Microservice;
+using Avanti.Core.Microservice.Extensions;
 using Avanti.Core.RelationalData;
 using Avanti.ProductService.Product.Documents;
 
@@ -32,9 +33,9 @@ namespace Avanti.ProductService.Product
             this.mapper = mapper;
             this.clock = clock;
 
-            ReceiveAsync<GetProductById>(m => HandleGetProductById(m).PipeTo(this.Sender));
-            ReceiveAsync<GetProductsById>(m => HandleGetProductsById(m).PipeTo(this.Sender));
-            ReceiveAsync<UpsertProduct>(m => HandleUpsertProduct(m).PipeTo(this.Sender));
+            ReceiveAsync<GetProductById>(m => HandleGetProductById(m).AsyncReplyTo(this.Sender));
+            ReceiveAsync<GetProductsById>(m => HandleGetProductsById(m).AsyncReplyTo(this.Sender));
+            ReceiveAsync<UpsertProduct>(m => HandleUpsertProduct(m).AsyncReplyTo(this.Sender));
         }
 
         private async Task<IResponse> HandleGetProductById(GetProductById m)
