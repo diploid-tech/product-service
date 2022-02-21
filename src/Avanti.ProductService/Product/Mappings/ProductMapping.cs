@@ -15,7 +15,10 @@ namespace Avanti.ProductService.Product.Mappings
             CreateMap<ProductActor.ProductFound, PrivateApiController.GetProductResponse>()
                 .AfterMap((src, dest, context) => context.Mapper.Map(src.Document, dest))
                 .ForMember(s => s.Id, o => o.MapFrom(s => s.Id))
-                .ForAllOtherMembers(o => o.Ignore());
+                .ForMember(s => s.Description, o => o.Ignore())
+                .ForMember(s => s.Price, o => o.Ignore())
+                .ForMember(s => s.WarehouseId, o => o.Ignore())
+                .ForMember(s => s.Properties, o => o.Ignore());
             CreateMap<ProductDocument.Property, PrivateApiController.GetProductResponse.Property>();
             CreateMap<ProductDocument, PrivateApiController.GetProductResponse>()
                 .ForMember(s => s.Id, o => o.Ignore());
@@ -23,8 +26,7 @@ namespace Avanti.ProductService.Product.Mappings
             CreateMap<ProductActor.UpsertProduct.Property, ProductDocument.Property>();
             CreateMap<(int Id, ProductDocument Document), ProductUpdated>()
                 .AfterMap((src, dest, context) => context.Mapper.Map(src.Document, dest))
-                .ForMember(s => s.Id, o => o.MapFrom(s => s.Id))
-                .ForAllOtherMembers(o => o.Ignore());
+                .ForMember(s => s.Id, o => o.MapFrom(s => s.Id));
             CreateMap<ProductDocument, ProductUpdated>()
                 .ForMember(s => s.Id, o => o.Ignore());
             CreateMap<KeyValuePair<int, ProductDocument>, PrivateApiController.PostMultipleProductsResponse>()
