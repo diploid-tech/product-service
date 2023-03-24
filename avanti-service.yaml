@@ -7,7 +7,7 @@ main:
 
     This service is an example of being a generic service for a specific domain entity (product) which are created inside the platform
   deploymentType: Service
-  buildType: dotnet6
+  buildType: dotnet7
   integration: none
   httpPort: 5000
   clusterPort: 2552

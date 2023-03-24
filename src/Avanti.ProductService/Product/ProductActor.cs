@@ -1,115 +1,109 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
-using Akka.Actor;
 using Akka.Event;
 using AutoMapper;
 using Avanti.Core.EventStream;
-using Avanti.Core.Microservice;
 using Avanti.Core.Microservice.Extensions;
 using Avanti.Core.RelationalData;
 using Avanti.ProductService.Product.Documents;
 
-namespace Avanti.ProductService.Product
+namespace Avanti.ProductService.Product;
+
+public partial class ProductActor : ReceiveActor
 {
-    public partial class ProductActor : ReceiveActor
+    private readonly ILoggingAdapter log = Logging.GetLogger(Context);
+    private readonly IRelationalDataStoreActorProvider relationalDataStoreActorProvider;
+    private readonly IPlatformEventActorProvider platformEventActorProvider;
+    private readonly IMapper mapper;
+    private readonly IClock clock;
+
+    public ProductActor(
+        IRelationalDataStoreActorProvider datastoreActorProvider,
+        IPlatformEventActorProvider platformEventActorProvider,
+        IMapper mapper,
+        IClock clock)
     {
-        private readonly ILoggingAdapter log = Logging.GetLogger(Context);
-        private readonly IRelationalDataStoreActorProvider relationalDataStoreActorProvider;
-        private readonly IPlatformEventActorProvider platformEventActorProvider;
-        private readonly IMapper mapper;
-        private readonly IClock clock;
+        this.relationalDataStoreActorProvider = datastoreActorProvider;
+        this.platformEventActorProvider = platformEventActorProvider;
+        this.mapper = mapper;
+        this.clock = clock;
 
-        public ProductActor(
-            IRelationalDataStoreActorProvider datastoreActorProvider,
-            IPlatformEventActorProvider platformEventActorProvider,
-            IMapper mapper,
-            IClock clock)
-        {
-            this.relationalDataStoreActorProvider = datastoreActorProvider;
-            this.platformEventActorProvider = platformEventActorProvider;
-            this.mapper = mapper;
-            this.clock = clock;
+        ReceiveAsync<GetProductById>(m => HandleGetProductById(m).AsyncReplyTo(this.Sender));
+        ReceiveAsync<GetProductsById>(m => HandleGetProductsById(m).AsyncReplyTo(this.Sender));
+        ReceiveAsync<UpsertProduct>(m => HandleUpsertProduct(m).AsyncReplyTo(this.Sender));
+    }
 
-            ReceiveAsync<GetProductById>(m => HandleGetProductById(m).AsyncReplyTo(this.Sender));
-            ReceiveAsync<GetProductsById>(m => HandleGetProductsById(m).AsyncReplyTo(this.Sender));
-            ReceiveAsync<UpsertProduct>(m => HandleUpsertProduct(m).AsyncReplyTo(this.Sender));
-        }
+    private async Task<IResponse> HandleGetProductById(GetProductById m)
+    {
+        this.log.Info($"Incoming request for getting product by id {m.Id}");
 
-        private async Task<IResponse> HandleGetProductById(GetProductById m)
-        {
-            this.log.Info($"Incoming request for getting product by id {m.Id}");
-
-            Result<ProductDocument>? result = await this.relationalDataStoreActorProvider.ExecuteScalarJsonAs<ProductDocument>(
-                DataStoreStatements.GetProductById,
-                new
-                {
-                    m.Id
-                });
-
-            return result switch
+        Result<ProductDocument>? result = await this.relationalDataStoreActorProvider.ExecuteScalarJsonAs<ProductDocument>(
+            DataStoreStatements.GetProductById,
+            new
             {
-                IsSome<ProductDocument> scalar => new ProductFound { Id = m.Id, Document = scalar.Value },
-                IsNone => new ProductNotFound(),
-                _ => new ProductRetrievalFailed()
-            };
-        }
+                m.Id
+            });
 
-        private async Task<IResponse> HandleGetProductsById(GetProductsById m)
+        return result switch
         {
-            this.log.Info($"Incoming request for getting products '{string.Join(", ", m.ProductIds)}'");
+            IsSome<ProductDocument> scalar => new ProductFound { Id = m.Id, Document = scalar.Value },
+            IsNone => new ProductNotFound(),
+            _ => new ProductRetrievalFailed()
+        };
+    }
 
-            Result<IEnumerable<dynamic>>? result = await this.relationalDataStoreActorProvider.ExecuteQuery(
-                DataStoreStatements.GetProductsById,
-                new
-                {
-                    Ids = m.ProductIds
-                });
+    private async Task<IResponse> HandleGetProductsById(GetProductsById m)
+    {
+        this.log.Info($"Incoming request for getting products '{string.Join(", ", m.ProductIds)}'");
 
-            return result switch
+        Result<IEnumerable<dynamic>>? result = await this.relationalDataStoreActorProvider.ExecuteQuery(
+            DataStoreStatements.GetProductsById,
+            new
             {
-                IsSome<IEnumerable<dynamic>> records =>
-                    new ProductsFound
-                    {
-                        Products = new Dictionary<int, ProductDocument>(
-                            records.Value.Select(r => new KeyValuePair<int, ProductDocument>(r.id, JsonSerializer.Deserialize<ProductDocument>((string)r.productjson)))).ToImmutableDictionary()
-                    },
-                _ => new ProductRetrievalFailed()
-            };
-        }
+                Ids = m.ProductIds
+            });
 
-        private async Task<IResponse> HandleUpsertProduct(UpsertProduct m)
+        return result switch
         {
-            this.log.Info($"Incoming request for upserting product with id {m.Id}");
-
-            ProductDocument? document = this.mapper.Map<ProductDocument>(m);
-            Result<int>? result = await this.relationalDataStoreActorProvider.ExecuteScalar<int>(
-                m.Id.HasValue ? DataStoreStatements.UpdateProduct : DataStoreStatements.InsertProduct,
-                new
+            IsSome<IEnumerable<dynamic>> records =>
+                new ProductsFound
                 {
-                    m.Id,
-                    ProductJson = JsonSerializer.Serialize(document),
-                    Now = this.clock.Now()
-                });
+                    Products = new Dictionary<int, ProductDocument>(
+                        records.Value.Select(r => new KeyValuePair<int, ProductDocument>(r.id, JsonSerializer.Deserialize<ProductDocument>((string)r.productjson)))).ToImmutableDictionary()
+                },
+            _ => new ProductRetrievalFailed()
+        };
+    }
 
-            switch (result)
+    private async Task<IResponse> HandleUpsertProduct(UpsertProduct m)
+    {
+        this.log.Info($"Incoming request for upserting product with id {m.Id}");
+
+        ProductDocument? document = this.mapper.Map<ProductDocument>(m);
+        Result<int>? result = await this.relationalDataStoreActorProvider.ExecuteScalar<int>(
+            m.Id.HasValue ? DataStoreStatements.UpdateProduct : DataStoreStatements.InsertProduct,
+            new
             {
-                case IsSome<int> id:
-                    Events.ProductUpdated? e = this.mapper.Map<Events.ProductUpdated>((id.Value, document));
-                    if (await this.platformEventActorProvider.SendEvent(e) is IsSuccess)
-                    {
-                        return new ProductStored { Id = id.Value };
-                    }
+                m.Id,
+                ProductJson = JsonSerializer.Serialize(document),
+                Now = this.clock.Now()
+            });
 
-                    break;
+        switch (result)
+        {
+            case IsSome<int> id:
+                Events.ProductUpdated? e = this.mapper.Map<Events.ProductUpdated>((id.Value, document));
+                if (await this.platformEventActorProvider.SendEvent(e) is IsSuccess)
+                {
+                    return new ProductStored { Id = id.Value };
+                }
 
-                default:
-                    break;
-            }
+                break;
 
-            return new ProductFailedToStore();
+            default:
+                break;
         }
+
+        return new ProductFailedToStore();
     }
 }

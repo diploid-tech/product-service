@@ -6,75 +6,74 @@ using Avanti.ProductService.Product.Documents;
 using FluentAssertions;
 using Xunit;
 
-namespace Avanti.ProductServiceTests.Product
+namespace Avanti.ProductServiceTests.Product;
+
+public partial class ProductActorSpec
 {
-    public partial class ProductActorSpec
+    public class When_Get_Product_By_Id_Is_Received : ProductActorSpec
     {
-        public class When_Get_Product_By_Id_Is_Received : ProductActorSpec
+        private readonly ProductActor.GetProductById input = new()
         {
-            private readonly ProductActor.GetProductById input = new()
+            Id = 12
+        };
+
+        [Fact]
+        public void Should_Return_Product_When_Found()
+        {
+            var document = new ProductDocument
             {
-                Id = 12
+                Description = "shirt",
+                Price = 13000,
+                WarehouseId = 2,
+                Properties =
+                new[]
+                {
+                        new ProductDocument.Property { Name = "color", Value = "blue" },
+                        new ProductDocument.Property { Name = "size", Value = "M" }
+                }
             };
 
-            [Fact]
-            public void Should_Return_Product_When_Found()
-            {
-                var document = new ProductDocument
+            progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
+                    new RelationalDataStoreActor.ScalarResult(JsonSerializer.Serialize(document)));
+
+            Subject.Tell(input);
+
+            Kit.ExpectMsg<ProductActor.ProductFound>().Should().BeEquivalentTo(
+                new ProductActor.ProductFound
                 {
-                    Description = "shirt",
-                    Price = 13000,
-                    WarehouseId = 2,
-                    Properties =
-                    new[]
+                    Id = 12,
+                    Document = document
+                });
+
+            progDatastoreActor.GetRequest<RelationalDataStoreActor.ExecuteScalar>()
+                .Should().BeEquivalentTo(new RelationalDataStoreActor.ExecuteScalar(
+                    DataStoreStatements.GetProductById,
+                    new
                     {
-                            new ProductDocument.Property { Name = "color", Value = "blue" },
-                            new ProductDocument.Property { Name = "size", Value = "M" }
-                    }
-                };
+                        Id = 12
+                    }));
+        }
 
-                progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
-                        new RelationalDataStoreActor.ScalarResult(JsonSerializer.Serialize(document)));
+        [Fact]
+        public void Should_Return_Not_Found_When_Not_Found()
+        {
+            progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
+                new RelationalDataStoreActor.ScalarResult(null));
 
-                Subject.Tell(input);
+            Subject.Tell(input);
 
-                Kit.ExpectMsg<ProductActor.ProductFound>().Should().BeEquivalentTo(
-                    new ProductActor.ProductFound
-                    {
-                        Id = 12,
-                        Document = document
-                    });
+            Kit.ExpectMsg<ProductActor.ProductNotFound>();
+        }
 
-                progDatastoreActor.GetRequest<RelationalDataStoreActor.ExecuteScalar>()
-                    .Should().BeEquivalentTo(new RelationalDataStoreActor.ExecuteScalar(
-                        DataStoreStatements.GetProductById,
-                        new
-                        {
-                            Id = 12
-                        }));
-            }
+        [Fact]
+        public void Should_Return_Failure_When_Could_Not_Retrieve_Data()
+        {
+            progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
+                new RelationalDataStoreActor.ExecuteFailed());
 
-            [Fact]
-            public void Should_Return_Not_Found_When_Not_Found()
-            {
-                progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
-                    new RelationalDataStoreActor.ScalarResult(null));
+            Subject.Tell(input);
 
-                Subject.Tell(input);
-
-                Kit.ExpectMsg<ProductActor.ProductNotFound>();
-            }
-
-            [Fact]
-            public void Should_Return_Failure_When_Could_Not_Retrieve_Data()
-            {
-                progDatastoreActor.SetResponseForRequest<RelationalDataStoreActor.ExecuteScalar>(request =>
-                    new RelationalDataStoreActor.ExecuteFailed());
-
-                Subject.Tell(input);
-
-                Kit.ExpectMsg<ProductActor.ProductRetrievalFailed>();
-            }
+            Kit.ExpectMsg<ProductActor.ProductRetrievalFailed>();
         }
     }
 }
